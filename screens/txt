@@ -1,0 +1,81 @@
+import React, { useState } from 'react';
+import { TouchableOpacity, Image, View, StyleSheet, Text, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { firebase, storage } from '../config';
+
+export default function ImagePickerExample() {
+    const [images, setImages] = useState([]);
+
+    const pickImage = async () => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        console.log(result);
+
+        if (!result.cancelled) {
+            try {
+                const response = await fetch(result.assets[0].uri);
+                const blob = await response.blob();
+                const currentUser = firebase.auth().currentUser;
+                const imageName = `${currentUser.uid}/profileImage_${new Date().getTime()}.jpg`;
+                const ref = storage.ref(imageName);
+                await ref.put(blob);
+                // Agregar la nueva imagen al estado
+                setImages(prevImages => [...prevImages, { uri: result.assets[0].uri, name: imageName }]);
+
+                // Mostrar alerta de éxito
+                Alert.alert("Imagen Subida", "La imagen se ha subido correctamente.");
+            } catch (error) {
+                console.error("Error al subir la imagen:", error);
+                // Mostrar alerta de error si la subida falla
+                Alert.alert("Error", "Hubo un error al subir la imagen. Por favor, inténtalo de nuevo.");
+            }
+        }
+    };
+
+    return (
+        <View style={styles.container}>
+            <TouchableOpacity onPress={pickImage} style={styles.profileButton}>
+                {images.length > 0 ? (
+                    <Image source={{ uri: images[images.length - 1].uri }} style={styles.profileImage} />
+                ) : (
+                    <Text style={styles.profileButtonText}>
+                        Subir Foto de Perfil
+                    </Text>
+                )}
+            </TouchableOpacity>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    profileButton: {
+        backgroundColor: "#f2f2f2",
+        borderRadius: 100,
+        justifyContent: "center",
+        alignItems: "center",
+        width: 200,
+        height: 200,
+        borderWidth: 2,
+        borderColor: "#ddd",
+    },
+    profileImage: {
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+    },
+    profileButtonText: {
+        fontWeight: "bold",
+        fontSize: 22,
+        color: "#fff",
+    },
+});

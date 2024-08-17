@@ -1,0 +1,160 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Image, SafeAreaView, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { firebase, storage } from '../config';
+import * as ImagePicker from 'expo-image-picker';
+
+const ProfileUser = () => {
+    const navigation = useNavigation();
+    const [email, setEmail] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [profileImage, setProfileImage] = useState(null);
+
+    useEffect(() => {
+        const currentUser = firebase.auth().currentUser;
+
+        // Cargar imagen de perfil al cargar el componente
+        const loadImage = async () => {
+            try {
+                const url = await firebase.storage().ref(`${currentUser.uid}/profileImage`).getDownloadURL();
+                setProfileImage(url);
+            } catch (error) {
+                console.error('Error obteniendo imagen de perfil:', error);
+            }
+        };
+        loadImage();
+
+        // Escuchar cambios en la colección de usuarios para actualizar la imagen de perfil
+        const unsubscribe = firebase.firestore().collection('users').doc(currentUser.uid)
+            .onSnapshot((doc) => {
+                if (doc.exists) {
+                    const userData = doc.data();
+                    setFirstName(userData.firstName);
+                    setLastName(userData.lastName);
+                }
+            });
+
+        return () => unsubscribe(); // Limpiar el listener cuando el componente se desmonte
+    }, []);
+
+    const changePassword = () => {
+        navigation.navigate('ChangePassword');
+    };
+
+    const pickImage = async () => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            try {
+                const currentUser = firebase.auth().currentUser;
+
+                const response = await fetch(result.assets[0].uri);
+                const blob = await response.blob();
+                const newImageName = `${currentUser.uid}/profileImage`;
+                const newRef = storage.ref(newImageName);
+                await newRef.put(blob);
+
+                const newImageUrl = await newRef.getDownloadURL();
+                setProfileImage(newImageUrl);
+
+                Alert.alert('Imagen Subida', 'La imagen se ha subido correctamente.');
+            } catch (error) {
+                console.error('Error al subir la imagen:', error);
+                Alert.alert('Error', 'Hubo un error al subir la imagen. Por favor, inténtalo de nuevo.');
+            }
+        }
+    };
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <View>
+                <TextInput
+                    style={styles.TextInput}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="Nombre"
+                />
+                <TextInput
+                    style={styles.TextInput}
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="Apellido"
+                />
+                <TextInput
+                    style={styles.TextInput}
+                    value={email}
+                    placeholder="Correo electrónico"
+                    editable={false}
+                />
+                <TouchableOpacity
+                    onPress={changePassword}
+                    style={styles.button}
+                >
+                    <Text style={{ fontWeight: "bold", fontSize: 22 }}>Cambiar contraseña</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => firebase.auth().signOut()}
+                    style={styles.button}
+                >
+                    <Text style={styles.buttonText}>Cerrar Sesión</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={pickImage}
+                    style={styles.button}
+                >
+                    <Text style={{ fontWeight: "bold", fontSize: 22 }}>Cambiar Foto de Perfil</Text>
+                </TouchableOpacity>
+                {profileImage && <Image source={{ uri: profileImage }} style={styles.profileImage} />}
+            </View>
+        </SafeAreaView>
+    );
+};
+
+export default ProfileUser;
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#fff",
+    },
+    TextInput: {
+        marginBottom: 10,
+        borderBottomColor: "#000",
+        paddingTop: 20,
+        paddingBottom: 10,
+        width: 400,
+        fontSize: 20,
+        borderBottomWidth: 1,
+        textAlign: "center",
+    },
+    button: {
+        marginTop: 20,
+        width: 200,
+        backgroundColor: "yellow",
+        height: 70,
+        margin: 12,
+        borderWidth: 1,
+        padding: 10,
+        borderRadius: 50,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    profileImage: {
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+    },
+});
+
+
+
+
+         <Text style={styles.title}>Hola {name.firstName}</Text>
